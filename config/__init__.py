@@ -1,0 +1,1 @@
+"""config: Configuration centralisée."""

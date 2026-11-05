@@ -1,0 +1,17 @@
+[
+  {
+    "instruction": "Explique la différence entre une loi et un décret.",
+    "input": "",
+    "output": "Une loi est votée par le Parlement. Un décret est un texte pris par le pouvoir exécutif (Président ou Premier ministre), souvent pour appliquer une loi."
+  },
+  {
+    "instruction": "Résume ce passage en une phrase.",
+    "input": "Article 1 : Le présent décret fixe les conditions d'accès aux archives publiques. Article 2 : Toute personne peut consulter les archives publiques après un délai de vingt-cinq ans.",
+    "output": "Le décret permet à toute personne de consulter les archives publiques après vingt-cinq ans."
+  },
+  {
+    "instruction": "Quelles informations doit contenir un document administratif officiel ?",
+    "input": "",
+    "output": "Il doit indiquer l'autorité qui l'émet, la date, l'objet, la référence du texte et la signature de la personne habilitée."
+  }
+]

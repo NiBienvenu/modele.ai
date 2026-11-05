@@ -1,0 +1,85 @@
+# ==========================================================================
+# Plateforme IA documentaire - Docker Compose
+#
+#   cp .env.example .env
+#   docker compose up --build            # CPU
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build   # GPU NVIDIA
+#
+# Interface web : http://localhost:3000
+# API           : http://localhost:8000/docs
+#
+# Les dossiers models/, checkpoints/, datasets/, documents/, tokenizer/ et logs/
+# du projet sont montés dans les conteneurs : leur contenu survit à
+# `docker compose down` et à la reconstruction des images.
+# ==========================================================================
+
+# Shared settings of the containers that run Python + LitGPT
+x-python-app: &python-app
+  image: plateforme-ia-backend
+  build:
+    context: .
+    dockerfile: docker/backend.Dockerfile
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    # Mount points inside the container (they override the .env values).
+    # MODEL_PATH / TOKENIZER_PATH in .env must stay relative (ex: models/...)
+    MODELS_DIR: /app/models
+    CHECKPOINTS_DIR: /app/checkpoints
+    DATASETS_DIR: /app/datasets
+    DOCUMENTS_DIR: /app/documents
+    LOGS_DIR: /app/logs
+    HOST: 0.0.0.0
+    PORT: "8000"
+  volumes:
+    - ./models:/app/models
+    - ./checkpoints:/app/checkpoints
+    - ./datasets:/app/datasets
+    - ./documents:/app/documents
+    - ./tokenizer:/app/tokenizer
+    - ./logs:/app/logs
+    - hf-cache:/app/.cache/huggingface
+
+services:
+  # Downloads MODEL_NAME into ./models once, then stops.
+  # Does nothing if the model is already there.
+  model:
+    <<: *python-app
+    command: ["python", "scripts/download_model.py"]
+    restart: "no"
+
+  # FastAPI + inference worker
+  backend:
+    <<: *python-app
+    command: ["python", "-m", "backend.main"]
+    depends_on:
+      model:
+        condition: service_completed_successfully
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    # Ready when the API answers (uses the auto-generated schema, not a business route)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+  # React interface served by nginx (also proxies the API)
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    image: plateforme-ia-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    restart: unless-stopped
+
+volumes:
+  # HuggingFace download cache (speeds up re-downloads)
+  hf-cache:

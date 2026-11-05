@@ -1,0 +1,42 @@
+.ipynb_checkpoints/
+__pycache__
+.idea
+.DS_Store
+*.egg-info
+build
+dist
+.venv
+.venv/
+.vscode
+uv.lock
+
+
+# data
+data
+!litgpt/data
+!tests/data
+out
+wandb
+events.out.tfevents*
+
+
+# ---- Plateforme documentaire ----
+# Data folders: keep only their README, never commit weights or documents
+/models/*
+/checkpoints/*
+/datasets/*
+/documents/*
+/tokenizer/*
+/logs/*
+!/models/README.md
+!/checkpoints/README.md
+!/datasets/README.md
+!/datasets/exemple_instructions.json
+!/documents/README.md
+!/tokenizer/README.md
+!/logs/README.md
+# Local configuration (secrets)
+.env
+# Frontend
+node_modules/
+frontend/dist/

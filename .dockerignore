@@ -1,0 +1,23 @@
+# Keep the build context small and never bake data or secrets into images.
+.git
+.env
+**/__pycache__
+**/*.pyc
+.venv
+*.egg-info
+
+# Data: mounted as volumes at runtime
+models
+checkpoints
+datasets
+documents
+tokenizer
+logs
+out
+data
+
+# Not needed in images
+tests
+frontend/node_modules
+frontend/dist
+frontend/.env
