@@ -12,7 +12,8 @@ Dockerfiles du backend et du frontend. Le `docker-compose.yml` est à la racine.
 
 ```bash
 cp .env.example .env
-docker compose up --build -d                                              # CPU
+docker compose pull && docker compose up -d                                 # images publiées
+docker compose up --build -d                                              # CPU, depuis le code
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d   # GPU NVIDIA
 docker compose logs -f backend
 docker compose down          # arrête tout, les données restent dans ./models, ./checkpoints...
@@ -21,8 +22,8 @@ docker compose down          # arrête tout, les données restent dans ./models,
 ## Services
 
 - `model` : télécharge `MODEL_NAME` dans `./models` puis s'arrête (ne fait rien si déjà présent)
-- `backend` : API sur le port `BACKEND_PORT` (8000 par défaut)
-- `frontend` : interface sur le port `FRONTEND_PORT` (3000 par défaut)
+- `backend` : API sur le port `BACKEND_PORT` (4444 par défaut)
+- `frontend` : interface sur le port `FRONTEND_PORT` (5555 par défaut)
 
 ## Données persistantes
 

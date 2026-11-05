@@ -7,7 +7,7 @@ Interface web React + Vite + TypeScript. Ne parle qu'aux deux routes REST, aucun
 ```bash
 cd frontend
 npm install
-npm run dev        # http://localhost:5173 (le backend doit tourner sur BACKEND_URL, par défaut :8000)
+npm run dev        # http://localhost:5555 (le backend doit tourner sur BACKEND_URL, par défaut :4444)
 npm run build      # vérifie les types et produit dist/
 ```
 

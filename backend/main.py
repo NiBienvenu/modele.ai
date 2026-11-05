@@ -2,7 +2,7 @@
 
 Run:
     python -m backend.main                       # uses HOST / PORT from .env
-    uvicorn backend.main:build_default_app --factory --host 0.0.0.0 --port 8000
+    uvicorn backend.main:build_default_app --factory --host 0.0.0.0 --port 4444
 
 On startup the inference worker starts and loads the model in the
 background, so the server answers right away. Questions sent before the

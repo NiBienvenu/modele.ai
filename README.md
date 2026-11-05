@@ -74,34 +74,81 @@ Format attendu pour `datasets/mes_donnees.json` :
 ]
 ```
 
-## Lancer l'API
+## Ports
+
+| Service | Port | Adresse |
+|---|---|---|
+| Interface web (frontend) | **5555** | http://localhost:5555 |
+| API (backend) | **4444** | http://localhost:4444/docs |
+
+Pour en changer : `FRONTEND_PORT` / `BACKEND_PORT` (Docker) et `PORT` / `CORS_ORIGINS` (backend) dans `.env`.
+
+## Tester dans le navigateur (Docker, le plus simple)
+
+```bash
+cp .env.example .env              # choisir MODEL_NAME si besoin
+docker compose pull               # récupère les images publiées sur ghcr.io
+docker compose up -d              # lance model + backend + frontend
+docker compose logs -f model      # 1re fois : suivre le téléchargement du modèle
+```
+
+Puis ouvrir **http://localhost:5555**, écrire une question, cliquer sur **Envoyer**.
+La réponse s'affiche avec le temps et le nombre de tokens.
+La documentation de l'API est sur **http://localhost:4444/docs** (bouton « Try it out »).
+
+> Le premier lancement télécharge le modèle dans `./models` : l'interface affiche
+> « En file d'attente… » tant que le modèle se charge. Les fois suivantes, il est déjà là.
+
+Arrêter : `docker compose down` (les modèles et documents restent dans les dossiers du projet).
+
+## Mettre à jour (images Docker publiées)
+
+À chaque push sur `develop` (ou `master`), GitHub Actions (`.github/workflows/docker-publish.yml`)
+construit et publie les images :
+
+- `ghcr.io/nibienvenu/plateforme-ia-backend`
+- `ghcr.io/nibienvenu/plateforme-ia-frontend`
+
+Le dépôt étant privé, les images le sont aussi. Une seule fois par machine, se connecter
+avec un token GitHub (Settings > Developer settings > Personal access tokens, droit `read:packages`) :
+
+```bash
+echo VOTRE_TOKEN | docker login ghcr.io -u NiBienvenu --password-stdin
+```
+
+Pour récupérer la dernière version sur n'importe quelle machine :
+
+```bash
+git pull                          # met à jour docker-compose.yml et .env.example
+docker compose pull               # télécharge les nouvelles images
+docker compose up -d              # redémarre les conteneurs mis à jour
+```
+
+Version précise : créer un tag git `v1.0.0` (images `:1.0.0`), puis `IMAGE_TAG=1.0.0` dans `.env`.
+Construire depuis le code au lieu de télécharger : `docker compose up --build -d`.
+GPU NVIDIA (construction locale) : `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d`.
+
+## Tester sans Docker (développement)
 
 ```bash
 cp .env.example .env
 pip install -e ".[extra,platform]"
-python -m backend.main          # http://localhost:8000, doc interactive sur /docs
+python -m backend.main                       # terminal 1 : API sur http://localhost:4444
+
+cd frontend && npm install && npm run dev    # terminal 2 : interface sur http://localhost:5555
 ```
 
+Avec `curl` :
+
 ```bash
-curl -X POST localhost:8000/question -H "Content-Type: application/json" -d '{"prompt": "Qu'\''est-ce qu'\''un décret ?"}'
+curl -X POST localhost:4444/question -H "Content-Type: application/json" -d '{"prompt": "Qu'\''est-ce qu'\''un décret ?"}'
 # {"request_id": "4f2c...", "status": "pending"}
 
-curl localhost:8000/response/4f2c...
+curl localhost:4444/response/4f2c...
 # {"request_id": "4f2c...", "status": "completed", "response": "...", "tokens": 87, "elapsed_time": 3.21, "error": null}
 ```
 
 Statuts : `pending` (en file) → `processing` (le modèle génère) → `completed` ou `failed`.
-
-## Lancer avec Docker
-
-```bash
-cp .env.example .env
-docker compose up --build -d        # interface : http://localhost:3000
-# GPU NVIDIA :
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
-```
-
-Détails dans `docker/README.md`.
 
 ## Tests de la plateforme
 
@@ -116,5 +163,5 @@ python -m unittest discover -s tests/platform -t .
 3. ✅ Configuration centralisée (`.env`) et moteur d'inférence (`inference/`)
 4. ✅ API REST : `POST /question`, `GET /response/{request_id}`
 5. ✅ Interface web (`frontend/`)
-6. ✅ Docker / docker-compose (`docker/`, `docker-compose.yml`)
+6. ✅ Docker / docker-compose (`docker/`, `docker-compose.yml`), images publiées sur ghcr.io
 7. Plus tard : RAG, base vectorielle, multi-modèle, authentification, historique, tableau de bord

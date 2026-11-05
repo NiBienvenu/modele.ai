@@ -2,11 +2,12 @@
 # Plateforme IA documentaire - Docker Compose
 #
 #   cp .env.example .env
-#   docker compose up --build            # CPU
+#   docker compose pull && docker compose up -d   # images publiées sur ghcr.io
+#   docker compose up --build -d                  # ou construire depuis le code (CPU)
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build   # GPU NVIDIA
 #
-# Interface web : http://localhost:3000
-# API           : http://localhost:8000/docs
+# Interface web : http://localhost:5555
+# API           : http://localhost:4444/docs
 #
 # Les dossiers models/, checkpoints/, datasets/, documents/, tokenizer/ et logs/
 # du projet sont montés dans les conteneurs : leur contenu survit à
@@ -15,7 +16,9 @@
 
 # Shared settings of the containers that run Python + LitGPT
 x-python-app: &python-app
-  image: plateforme-ia-backend
+  # Published by .github/workflows/docker-publish.yml. `docker compose pull` fetches it,
+  # `docker compose build` rebuilds it locally from the source.
+  image: ${IMAGE_REGISTRY:-ghcr.io/nibienvenu}/plateforme-ia-backend:${IMAGE_TAG:-latest}
   build:
     context: .
     dockerfile: docker/backend.Dockerfile
@@ -31,7 +34,7 @@ x-python-app: &python-app
     DOCUMENTS_DIR: /app/documents
     LOGS_DIR: /app/logs
     HOST: 0.0.0.0
-    PORT: "8000"
+    PORT: "4444"
   volumes:
     - ./models:/app/models
     - ./checkpoints:/app/checkpoints
@@ -57,10 +60,10 @@ services:
       model:
         condition: service_completed_successfully
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-4444}:4444"
     # Ready when the API answers (uses the auto-generated schema, not a business route)
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4444/openapi.json')"]
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -72,12 +75,12 @@ services:
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
-    image: plateforme-ia-frontend
+    image: ${IMAGE_REGISTRY:-ghcr.io/nibienvenu}/plateforme-ia-frontend:${IMAGE_TAG:-latest}
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "${FRONTEND_PORT:-3000}:80"
+      - "${FRONTEND_PORT:-5555}:80"
     restart: unless-stopped
 
 volumes:

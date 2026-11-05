@@ -150,10 +150,10 @@ class ServerSettings:
 
     @classmethod
     def from_env(cls) -> "ServerSettings":
-        origins = _get_str("CORS_ORIGINS", "http://localhost:5173")
+        origins = _get_str("CORS_ORIGINS", "http://localhost:5555")
         return cls(
             host=_get_str("HOST", "0.0.0.0"),
-            port=_get_int("PORT", 8000),
+            port=_get_int("PORT", 4444),
             cors_origins=[origin.strip() for origin in origins.split(",") if origin.strip()],
             max_prompt_length=_get_int("MAX_PROMPT_LENGTH", 8000),
             result_ttl_seconds=_get_int("RESULT_TTL_SECONDS", 3600),

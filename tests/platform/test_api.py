@@ -79,8 +79,8 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.client.post("/question", json={"prompt": "a" * 101}).status_code, 413)
 
     def test_cors_allows_frontend(self):
-        reply = self.client.get("/response/nope", headers={"Origin": "http://localhost:5173"})
-        self.assertEqual(reply.headers.get("access-control-allow-origin"), "http://localhost:5173")
+        reply = self.client.get("/response/nope", headers={"Origin": "http://localhost:5555"})
+        self.assertEqual(reply.headers.get("access-control-allow-origin"), "http://localhost:5555")
 
 
 if __name__ == "__main__":

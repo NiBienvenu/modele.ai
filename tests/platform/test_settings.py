@@ -43,7 +43,7 @@ class SettingsTest(unittest.TestCase):
     def test_defaults(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             settings = Settings.from_env()
-        self.assertEqual(settings.server.port, 8000)
+        self.assertEqual(settings.server.port, 4444)
         self.assertEqual(settings.model.device, "auto")
         self.assertEqual(settings.model.path, PROJECT_ROOT / "models" / settings.model.name)
         self.assertIsNone(settings.model.quantize)
