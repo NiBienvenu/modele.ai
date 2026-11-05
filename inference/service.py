@@ -12,6 +12,7 @@ a queue avoids memory errors when many users send questions together.
 import logging
 import queue
 import threading
+from collections.abc import Callable
 
 from inference.engine import InferenceEngine
 from inference.job_store import JobStore
@@ -21,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 _STOP_SIGNAL = None  # Put in the queue to stop the worker
 
+JobListener = Callable[[Job], None]  # Called when a job is completed or failed
+
 
 class InferenceService:
     def __init__(self, engine: InferenceEngine, store: JobStore, default_params: GenerationParams) -> None:
@@ -29,6 +32,7 @@ class InferenceService:
         self._default_params = default_params
         self._queue: queue.Queue[str | None] = queue.Queue()
         self._worker: threading.Thread | None = None
+        self._listeners: list[JobListener] = []
 
     # ---- Life cycle --------------------------------------------------------
     def start(self) -> None:
@@ -47,9 +51,13 @@ class InferenceService:
         self._worker = None
 
     # ---- Public API ----------------------------------------------------------
-    def submit(self, prompt: str) -> Job:
+    def add_listener(self, listener: JobListener) -> None:
+        """Be told when a job ends (used to save answers in conversations)."""
+        self._listeners.append(listener)
+
+    def submit(self, prompt: str, metadata: dict | None = None) -> Job:
         """Queue a question and return its job right away."""
-        job = self._store.create(prompt)
+        job = self._store.create(prompt, metadata)
         self._queue.put(job.request_id)
         return job
 
@@ -87,3 +95,13 @@ class InferenceService:
         except Exception as error:
             logger.exception("Generation failed for %s", request_id)
             self._store.mark_failed(request_id, f"{type(error).__name__}: {error}")
+        self._notify(request_id)
+
+    def _notify(self, request_id: str) -> None:
+        job = self._store.get(request_id)
+        for listener in self._listeners:
+            try:
+                listener(job)
+            except Exception:
+                # A listener bug must never stop the worker
+                logger.exception("Job listener failed for %s", request_id)

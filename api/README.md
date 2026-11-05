@@ -2,9 +2,14 @@
 
 Couche HTTP (FastAPI) : routes, schémas des requêtes et réponses. Appelle `inference/`, ne touche jamais directement au modèle.
 
-| Route | Rôle | Réponse |
-|---|---|---|
-| `POST /question` `{"prompt": "..."}` | Met la question en file | `202` `{"request_id", "status"}` |
-| `GET /response/{request_id}` | Statut et réponse | `200` `{"request_id", "status", "response", "tokens", "elapsed_time", "error"}`, `404` si inconnu |
+| Route | Rôle |
+|---|---|
+| `POST /question` `{"prompt", "conversation_id"?}` | Met la question en file, `202` `{"request_id", "status", "conversation_id"}` |
+| `GET /response/{request_id}` | Statut et réponse (`response`, `tokens`, `elapsed_time`, `error`) |
+| `GET /conversations` | Conversations de l'appareil |
+| `GET /conversations/{id}` | Une conversation et ses messages |
+| `DELETE /conversations/{id}` | Supprime une conversation |
 
-Fichiers : `schemas.py` (formats JSON), `routes.py` (les 2 routes), `dependencies.py` (injection du service).
+En-tête obligatoire : `X-Device-Id` (pas d'authentification, les conversations sont liées à l'appareil).
+
+Fichiers : `schemas.py` (formats JSON), `routes.py` (les routes), `dependencies.py` (services + `X-Device-Id`).

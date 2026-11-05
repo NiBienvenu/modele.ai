@@ -1,86 +1,58 @@
 # ==========================================================================
-# Plateforme IA documentaire - Docker Compose
+# Plateforme IA documentaire - Docker Compose (une seule image)
 #
 #   cp .env.example .env
-#   docker compose pull && docker compose up -d   # images publiées sur ghcr.io
+#   docker compose pull && docker compose up -d   # image publiée sur ghcr.io
 #   docker compose up --build -d                  # ou construire depuis le code (CPU)
-#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build   # GPU NVIDIA
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d   # GPU
 #
 # Interface web : http://localhost:5555
 # API           : http://localhost:4444/docs
 #
-# Les dossiers models/, checkpoints/, datasets/, documents/, tokenizer/ et logs/
-# du projet sont montés dans les conteneurs : leur contenu survit à
-# `docker compose down` et à la reconstruction des images.
+# Un seul conteneur sert l'interface et l'API. Les deux ports pointent vers
+# le même serveur : 5555 pour l'interface, 4444 pour l'API.
+#
+# Les dossiers models/, checkpoints/, datasets/, documents/, tokenizer/,
+# storage/ (conversations) et logs/ du projet sont montés dans le conteneur :
+# leur contenu survit à `docker compose down` et à la mise à jour de l'image.
+# Le modèle est téléchargé automatiquement au premier démarrage.
 # ==========================================================================
 
-# Shared settings of the containers that run Python + LitGPT
-x-python-app: &python-app
-  # Published by .github/workflows/docker-publish.yml. `docker compose pull` fetches it,
-  # `docker compose build` rebuilds it locally from the source.
-  image: ${IMAGE_REGISTRY:-ghcr.io/nibienvenu}/plateforme-ia-backend:${IMAGE_TAG:-latest}
-  build:
-    context: .
-    dockerfile: docker/backend.Dockerfile
-  env_file:
-    - path: .env
-      required: false
-  environment:
-    # Mount points inside the container (they override the .env values).
-    # MODEL_PATH / TOKENIZER_PATH in .env must stay relative (ex: models/...)
-    MODELS_DIR: /app/models
-    CHECKPOINTS_DIR: /app/checkpoints
-    DATASETS_DIR: /app/datasets
-    DOCUMENTS_DIR: /app/documents
-    LOGS_DIR: /app/logs
-    HOST: 0.0.0.0
-    PORT: "4444"
-  volumes:
-    - ./models:/app/models
-    - ./checkpoints:/app/checkpoints
-    - ./datasets:/app/datasets
-    - ./documents:/app/documents
-    - ./tokenizer:/app/tokenizer
-    - ./logs:/app/logs
-    - hf-cache:/app/.cache/huggingface
-
 services:
-  # Downloads MODEL_NAME into ./models once, then stops.
-  # Does nothing if the model is already there.
-  model:
-    <<: *python-app
-    command: ["python", "scripts/download_model.py"]
-    restart: "no"
-
-  # FastAPI + inference worker
-  backend:
-    <<: *python-app
-    command: ["python", "-m", "backend.main"]
-    depends_on:
-      model:
-        condition: service_completed_successfully
-    ports:
-      - "${BACKEND_PORT:-4444}:4444"
-    # Ready when the API answers (uses the auto-generated schema, not a business route)
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4444/openapi.json')"]
-      interval: 10s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-    restart: unless-stopped
-
-  # React interface served by nginx (also proxies the API)
-  frontend:
+  app:
+    # Published by .github/workflows/docker-publish.yml. `docker compose pull` fetches it,
+    # `docker compose build` rebuilds it locally from the source.
+    image: ${IMAGE_REGISTRY:-ghcr.io/nibienvenu}/plateforme-ia:${IMAGE_TAG:-latest}
     build:
       context: .
-      dockerfile: docker/frontend.Dockerfile
-    image: ${IMAGE_REGISTRY:-ghcr.io/nibienvenu}/plateforme-ia-frontend:${IMAGE_TAG:-latest}
-    depends_on:
-      backend:
-        condition: service_healthy
+      dockerfile: docker/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Mount points inside the container (they override the .env values).
+      # MODEL_PATH / TOKENIZER_PATH in .env must stay relative (ex: models/...)
+      MODELS_DIR: /app/models
+      CHECKPOINTS_DIR: /app/checkpoints
+      DATASETS_DIR: /app/datasets
+      DOCUMENTS_DIR: /app/documents
+      STORAGE_DIR: /app/storage
+      LOGS_DIR: /app/logs
+      FRONTEND_DIR: /app/frontend/dist
+      HOST: 0.0.0.0
+      PORT: "4444"
     ports:
-      - "${FRONTEND_PORT:-5555}:80"
+      - "${BACKEND_PORT:-4444}:4444"
+      - "${FRONTEND_PORT:-5555}:4444"
+    volumes:
+      - ./models:/app/models
+      - ./checkpoints:/app/checkpoints
+      - ./datasets:/app/datasets
+      - ./documents:/app/documents
+      - ./tokenizer:/app/tokenizer
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+      - hf-cache:/app/.cache/huggingface
     restart: unless-stopped
 
 volumes:

@@ -13,6 +13,7 @@ datasets
 documents
 tokenizer
 logs
+storage
 out
 data
 

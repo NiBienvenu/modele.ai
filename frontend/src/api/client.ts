@@ -1,25 +1,32 @@
 // HTTP client: the only file that talks to the backend.
-// It knows the two endpoints and nothing else.
+// Every call sends the device id, which owns the conversations.
 
-import type { QuestionAccepted, ResponseOut } from "./types";
+import { getDeviceId } from "../lib/deviceId";
+import type { ConversationOut, ConversationSummary, QuestionAccepted, ResponseOut } from "./types";
 
-// Empty = same origin (Vite proxy in dev, nginx in Docker)
+// Empty = same origin (the backend serves the interface, or the Vite proxy in dev)
 const API_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 /** Error with a message readable by the user. */
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+  }
+}
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("X-Device-Id", getDeviceId());
+  if (init.body) headers.set("Content-Type", "application/json");
+
   let reply: Response;
   try {
-    reply = await fetch(`${API_URL}${path}`, init);
+    reply = await fetch(`${API_URL}${path}`, { ...init, headers });
   } catch {
-    throw new ApiError("Impossible de joindre le serveur. Vérifiez que le backend est lancé.");
+    throw new ApiError("Impossible de joindre le serveur. Vérifiez qu'il est lancé.");
   }
-  if (!reply.ok) {
-    throw new ApiError(await readErrorMessage(reply));
-  }
-  return (await reply.json()) as T;
+  if (!reply.ok) throw new ApiError(await readErrorMessage(reply), reply.status);
+  return (reply.status === 204 ? undefined : await reply.json()) as T;
 }
 
 /** FastAPI sends errors as {"detail": "..."} or {"detail": [{msg: ...}]} */
@@ -29,21 +36,29 @@ async function readErrorMessage(reply: Response): Promise<string> {
     if (typeof body.detail === "string") return body.detail;
     if (Array.isArray(body.detail)) return body.detail.map((d: { msg: string }) => d.msg).join(", ");
   } catch {
-    // Body is not JSON: fall through
+    // Body is not JSON
   }
   return `Erreur du serveur (${reply.status})`;
 }
 
 /** POST /question */
-export function sendQuestion(prompt: string): Promise<QuestionAccepted> {
-  return request<QuestionAccepted>("/question", {
+export const sendQuestion = (prompt: string, conversationId: string | null) =>
+  request<QuestionAccepted>("/question", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, conversation_id: conversationId }),
   });
-}
 
 /** GET /response/{request_id} */
-export function fetchResponse(requestId: string, signal?: AbortSignal): Promise<ResponseOut> {
-  return request<ResponseOut>(`/response/${encodeURIComponent(requestId)}`, { signal });
-}
+export const fetchResponse = (requestId: string) =>
+  request<ResponseOut>(`/response/${encodeURIComponent(requestId)}`);
+
+/** GET /conversations */
+export const fetchConversations = () => request<ConversationSummary[]>("/conversations");
+
+/** GET /conversations/{id} */
+export const fetchConversation = (id: string) =>
+  request<ConversationOut>(`/conversations/${encodeURIComponent(id)}`);
+
+/** DELETE /conversations/{id} */
+export const deleteConversation = (id: string) =>
+  request<void>(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });

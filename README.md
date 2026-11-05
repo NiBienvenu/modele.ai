@@ -15,12 +15,13 @@ sans être réécrit.
 ├── litgpt/        Moteur IA (LitGPT) : modèles, tokenizer, génération, LoRA, QLoRA, quantization
 ├── backend/       Point d'entrée du serveur : assemble config + moteur + API
 ├── api/           Routes REST (HTTP seulement, aucune logique métier)
+├── chat/          Conversations par appareil (SQLite), historique envoyé au modèle
 ├── inference/     Logique d'inférence : chargement du modèle, file des requêtes
 ├── training/      Fine-tuning (full, LoRA, QLoRA)
 ├── rag/           Futur : recherche dans les documents + base vectorielle
 ├── config/        settings.py (lit .env) + recettes YAML LitGPT (config/litgpt/)
 ├── frontend/      Interface web React + Vite + TypeScript
-├── docker/        Dockerfiles
+├── docker/        Dockerfile (image unique : interface + API + moteur)
 ├── scripts/       Scripts utilitaires
 ├── tests/         Tests du moteur LitGPT
 ├── models/        (données) poids des modèles          ┐
@@ -28,6 +29,7 @@ sans être réécrit.
 ├── datasets/      (données) jeux d'entraînement        │ ignorés par git
 ├── documents/     (données) documents sources          │
 ├── tokenizer/     (données) tokenizer séparé           │
+├── storage/       (données) conversations (SQLite)     │
 └── logs/          (données) journaux                   ┘
 ```
 
@@ -87,13 +89,15 @@ Pour en changer : `FRONTEND_PORT` / `BACKEND_PORT` (Docker) et `PORT` / `CORS_OR
 
 ```bash
 cp .env.example .env              # choisir MODEL_NAME si besoin
-docker compose pull               # récupère les images publiées sur ghcr.io
-docker compose up -d              # lance model + backend + frontend
-docker compose logs -f model      # 1re fois : suivre le téléchargement du modèle
+docker compose pull               # récupère l'image publiée sur ghcr.io
+docker compose up -d              # lance le conteneur unique (interface + API + modèle)
+docker compose logs -f app        # 1re fois : suivre le téléchargement du modèle
 ```
 
-Puis ouvrir **http://localhost:5555**, écrire une question, cliquer sur **Envoyer**.
-La réponse s'affiche avec le temps et le nombre de tokens.
+Puis ouvrir **http://localhost:5555**, écrire une question, appuyer sur **Entrée**.
+La réponse s'affiche avec le temps et le nombre de tokens. Les conversations apparaissent
+dans le panneau de gauche (recherche, suppression) et sont gardées sur le serveur, liées à
+l'appareil (aucun compte : le navigateur envoie un identifiant `X-Device-Id`).
 La documentation de l'API est sur **http://localhost:4444/docs** (bouton « Try it out »).
 
 > Le premier lancement télécharge le modèle dans `./models` : l'interface affiche
@@ -104,12 +108,9 @@ Arrêter : `docker compose down` (les modèles et documents restent dans les dos
 ## Mettre à jour (images Docker publiées)
 
 À chaque push sur `develop` (ou `master`), GitHub Actions (`.github/workflows/docker-publish.yml`)
-construit et publie les images :
+construit et publie **une seule image** : `ghcr.io/nibienvenu/plateforme-ia`
 
-- `ghcr.io/nibienvenu/plateforme-ia-backend`
-- `ghcr.io/nibienvenu/plateforme-ia-frontend`
-
-Le dépôt étant privé, les images le sont aussi. Une seule fois par machine, se connecter
+Le dépôt étant privé, l'image l'est aussi. Une seule fois par machine, se connecter
 avec un token GitHub (Settings > Developer settings > Personal access tokens, droit `read:packages`) :
 
 ```bash
@@ -120,7 +121,7 @@ Pour récupérer la dernière version sur n'importe quelle machine :
 
 ```bash
 git pull                          # met à jour docker-compose.yml et .env.example
-docker compose pull               # télécharge les nouvelles images
+docker compose pull               # télécharge la nouvelle image
 docker compose up -d              # redémarre les conteneurs mis à jour
 ```
 
@@ -141,12 +142,22 @@ cd frontend && npm install && npm run dev    # terminal 2 : interface sur http:/
 Avec `curl` :
 
 ```bash
-curl -X POST localhost:4444/question -H "Content-Type: application/json" -d '{"prompt": "Qu'\''est-ce qu'\''un décret ?"}'
-# {"request_id": "4f2c...", "status": "pending"}
+curl -X POST localhost:4444/question -H "Content-Type: application/json" -H "X-Device-Id: mon-appareil-01" -d '{"prompt": "Qu'\''est-ce qu'\''un décret ?"}'
+# {"request_id": "4f2c...", "status": "pending", "conversation_id": "9a1b..."}
 
 curl localhost:4444/response/4f2c...
 # {"request_id": "4f2c...", "status": "completed", "response": "...", "tokens": 87, "elapsed_time": 3.21, "error": null}
 ```
+
+Toutes les routes de conversation demandent l'en-tête `X-Device-Id` (identifiant de l'appareil, 8 à 64 caractères).
+
+| Route | Rôle |
+|---|---|
+| `POST /question` `{"prompt", "conversation_id"?}` | Pose une question (nouvelle conversation si pas d'id) |
+| `GET /response/{request_id}` | Statut et réponse |
+| `GET /conversations` | Liste des conversations de l'appareil |
+| `GET /conversations/{id}` | Une conversation avec ses messages |
+| `DELETE /conversations/{id}` | Supprime une conversation |
 
 Statuts : `pending` (en file) → `processing` (le modèle génère) → `completed` ou `failed`.
 
@@ -163,5 +174,6 @@ python -m unittest discover -s tests/platform -t .
 3. ✅ Configuration centralisée (`.env`) et moteur d'inférence (`inference/`)
 4. ✅ API REST : `POST /question`, `GET /response/{request_id}`
 5. ✅ Interface web (`frontend/`)
-6. ✅ Docker / docker-compose (`docker/`, `docker-compose.yml`), images publiées sur ghcr.io
-7. Plus tard : RAG, base vectorielle, multi-modèle, authentification, historique, tableau de bord
+6. ✅ Docker : une seule image publiée sur ghcr.io
+7. ✅ Interface chatbot : conversations par appareil, recherche, thème clair/sombre
+8. Plus tard : RAG, base vectorielle, multi-modèle, authentification, historique, tableau de bord

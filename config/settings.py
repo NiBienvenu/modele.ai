@@ -73,6 +73,8 @@ class PathSettings:
     datasets_dir: Path
     documents_dir: Path
     logs_dir: Path
+    storage_dir: Path  # SQLite database of the conversations
+    frontend_dir: Path  # Built web interface served by the backend (single image)
 
     @classmethod
     def from_env(cls) -> "PathSettings":
@@ -82,6 +84,8 @@ class PathSettings:
             datasets_dir=_get_path("DATASETS_DIR", "datasets"),
             documents_dir=_get_path("DOCUMENTS_DIR", "documents"),
             logs_dir=_get_path("LOGS_DIR", "logs"),
+            storage_dir=_get_path("STORAGE_DIR", "storage"),
+            frontend_dir=_get_path("FRONTEND_DIR", "frontend/dist"),
         )
 
 
@@ -139,6 +143,21 @@ class GenerationSettings:
 
 
 @dataclass(frozen=True)
+class ChatSettings:
+    """Conversation options."""
+
+    history_messages: int  # Previous messages sent to the model as context
+    title_length: int  # Conversation title = start of the first question
+
+    @classmethod
+    def from_env(cls) -> "ChatSettings":
+        return cls(
+            history_messages=_get_int("CHAT_HISTORY_MESSAGES", 6),
+            title_length=_get_int("CHAT_TITLE_LENGTH", 60),
+        )
+
+
+@dataclass(frozen=True)
 class ServerSettings:
     """HTTP server options (used by the backend)."""
 
@@ -168,6 +187,7 @@ class Settings:
     model: ModelSettings
     generation: GenerationSettings
     server: ServerSettings
+    chat: ChatSettings
     log_level: str
 
     @classmethod
@@ -178,6 +198,7 @@ class Settings:
             model=ModelSettings.from_env(paths),
             generation=GenerationSettings.from_env(),
             server=ServerSettings.from_env(),
+            chat=ChatSettings.from_env(),
             log_level=_get_str("LOG_LEVEL", "INFO").upper(),
         )
 

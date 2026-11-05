@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/question": backend,
         "/response": backend,
+        "/conversations": backend,
       },
     },
   };

@@ -20,9 +20,9 @@ class JobStore:
         self._lock = threading.Lock()
         self._ttl_seconds = ttl_seconds
 
-    def create(self, prompt: str) -> Job:
+    def create(self, prompt: str, metadata: dict | None = None) -> Job:
         """Register a new pending job and return it."""
-        job = Job(request_id=uuid.uuid4().hex, prompt=prompt, created_at=time.time())
+        job = Job(request_id=uuid.uuid4().hex, prompt=prompt, created_at=time.time(), metadata=metadata or {})
         with self._lock:
             self._remove_expired()
             self._jobs[job.request_id] = job

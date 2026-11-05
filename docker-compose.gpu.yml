@@ -1,31 +1,22 @@
 # ==========================================================================
 # GPU add-on (NVIDIA). Needs the NVIDIA driver + NVIDIA Container Toolkit.
 #
-#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
 # ==========================================================================
 
-x-gpu: &gpu
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
-
-x-cuda-build: &cuda-build
-  build:
-    context: .
-    dockerfile: docker/backend.Dockerfile
-    args:
-      # PyTorch built for CUDA 12.4
-      TORCH_INDEX_URL: https://download.pytorch.org/whl/cu124
-
 services:
-  model:
-    <<: *cuda-build
-
-  backend:
-    <<: [*cuda-build, *gpu]
+  app:
+    image: plateforme-ia:cuda # Local build, does not replace the published CPU image
+    build:
+      args:
+        # PyTorch built for CUDA 12.4
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu124
     environment:
       DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

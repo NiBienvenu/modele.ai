@@ -28,6 +28,7 @@ events.out.tfevents*
 /documents/*
 /tokenizer/*
 /logs/*
+/storage/*
 !/models/README.md
 !/checkpoints/README.md
 !/datasets/README.md
@@ -35,8 +36,10 @@ events.out.tfevents*
 !/documents/README.md
 !/tokenizer/README.md
 !/logs/README.md
+!/storage/README.md
 # Local configuration (secrets)
 .env
 # Frontend
 node_modules/
 frontend/dist/
+frontend/.vite/

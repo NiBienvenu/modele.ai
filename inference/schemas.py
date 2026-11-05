@@ -47,6 +47,8 @@ class Job:
     result: GenerationResult | None = None
     error: str | None = None
     finished_at: float | None = field(default=None)
+    # Free data attached by the caller (ex: conversation_id), returned untouched
+    metadata: dict = field(default_factory=dict)
 
     @property
     def is_finished(self) -> bool:

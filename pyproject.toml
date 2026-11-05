@@ -96,6 +96,7 @@ packages.find.include = [
   # Document platform layers
   "api*",
   "backend*",
+  "chat*",
   "config*",
   "inference*",
   "rag*",

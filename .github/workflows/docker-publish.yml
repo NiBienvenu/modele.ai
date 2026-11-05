@@ -1,11 +1,11 @@
-# Build the Docker images and publish them on GitHub Container Registry (ghcr.io).
+# Build the single Docker image (interface + API + engine) and publish it on GitHub Container Registry (ghcr.io).
 #
 #   push on develop/master/main -> tags :latest, :<branch> and :sha-xxxxxxx
 #   push of a tag v1.2.3  -> tags :1.2.3 and :1.2
 #   manual run            -> "Actions" tab > "Publish Docker images" > Run workflow
 #
 # Then on any machine:  docker compose pull && docker compose up -d
-name: Publish Docker images
+name: Publish Docker image
 
 on:
   push:
@@ -20,21 +20,11 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: backend
-            dockerfile: docker/backend.Dockerfile
-          - name: frontend
-            dockerfile: docker/frontend.Dockerfile
-
     steps:
       - uses: actions/checkout@v4
 
-      # The backend image is big (PyTorch): free some disk on the runner
+      # The image is big (PyTorch): free some disk on the runner
       - name: Free disk space
-        if: matrix.name == 'backend'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
       - uses: docker/setup-buildx-action@v3
@@ -48,7 +38,7 @@ jobs:
       # ghcr.io needs a lower case owner name
       - name: Image name
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/plateforme-ia-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/plateforme-ia" >> "$GITHUB_OUTPUT"
 
       - uses: docker/metadata-action@v5
         id: meta
@@ -64,9 +54,9 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: docker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
