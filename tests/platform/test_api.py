@@ -3,6 +3,7 @@
 Run:  python -m unittest discover -s tests/platform -t .
 """
 
+from pathlib import Path
 import os
 import tempfile
 import time
@@ -33,7 +34,7 @@ class ApiTest(unittest.TestCase):
         with mock.patch.dict(os.environ, env, clear=True):
             settings = Settings.from_env()
         service = InferenceService(FakeEngine(fail_on="crash"), JobStore(ttl_seconds=60), PARAMS)
-        self.client = TestClient(create_app(settings, service))
+        self.client = TestClient(create_app(settings, service, Path(self.tmp.name) / "conversations"))
         self.client.__enter__()  # Runs the lifespan: starts the worker
 
     def tearDown(self):

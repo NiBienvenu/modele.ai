@@ -43,9 +43,11 @@ class ChatService:
     # ---- Questions -------------------------------------------------------------
     def ask(self, device_id: str, question: str, conversation_id: str | None = None) -> AskResult:
         conversation = self._get_or_create(device_id, question, conversation_id)
-        prompt = build_prompt(conversation.messages, question, self._settings.history_messages)
-        self._repository.add_message(conversation.conversation_id, Role.USER, question)
-        job = self._inference.submit(prompt, metadata={"conversation_id": conversation.conversation_id})
+        prompt = build_prompt(
+            conversation.messages, question, self._settings.history_messages, self._settings.prompt_format
+        )
+        self._repository.add_message(device_id, conversation.conversation_id, Role.USER, question)
+        job = self._inference.submit(prompt, metadata={"conversation_id": conversation.conversation_id, "device_id": device_id})
         return AskResult(job=job, conversation_id=conversation.conversation_id)
 
     def _get_or_create(self, device_id: str, question: str, conversation_id: str | None) -> Conversation:
@@ -64,15 +66,17 @@ class ChatService:
     # ---- Answers (called by the inference worker) -----------------------------
     def _save_answer(self, job: Job) -> None:
         conversation_id = job.metadata.get("conversation_id")
-        if conversation_id is None:
+        device_id = job.metadata.get("device_id")
+        if conversation_id is None or device_id is None:
             return
         if job.status == JobStatus.COMPLETED:
             result = job.result
             self._repository.add_message(
+                device_id,
                 conversation_id, Role.ASSISTANT, result.text, result.tokens, result.elapsed_time
             )
         else:
-            self._repository.add_message(conversation_id, Role.ASSISTANT, job.error or "Erreur", failed=True)
+            self._repository.add_message(device_id, conversation_id, Role.ASSISTANT, job.error or "Erreur", failed=True)
 
     # ---- Conversations -----------------------------------------------------------
     def list_conversations(self, device_id: str) -> list[Conversation]:

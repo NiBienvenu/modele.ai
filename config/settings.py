@@ -148,12 +148,14 @@ class ChatSettings:
 
     history_messages: int  # Previous messages sent to the model as context
     title_length: int  # Conversation title = start of the first question
+    prompt_format: str  # "text" (readable history) or "tokens" (<|user|> ... <|assistant|>, our own models)
 
     @classmethod
     def from_env(cls) -> "ChatSettings":
         return cls(
             history_messages=_get_int("CHAT_HISTORY_MESSAGES", 6),
             title_length=_get_int("CHAT_TITLE_LENGTH", 60),
+            prompt_format=_get_str("CHAT_PROMPT_FORMAT", "text"),
         )
 
 

@@ -177,3 +177,13 @@ python -m unittest discover -s tests/platform -t .
 6. ✅ Docker : une seule image publiée sur ghcr.io
 7. ✅ Interface chatbot : conversations par appareil, recherche, thème clair/sombre
 8. Plus tard : RAG, base vectorielle, multi-modèle, authentification, historique, tableau de bord
+
+
+## Deployer de nouveau le modele output: 
+
+```bash
+cd "/home/bienvenu/Documents/AI Model/litgpt"
+./scripts/installer_modele.sh ../outputs/modele_un_fr_rn.zip
+```
+
+

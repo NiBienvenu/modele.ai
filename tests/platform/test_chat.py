@@ -33,31 +33,57 @@ class PromptBuilderTest(unittest.TestCase):
         self.assertNotIn("old", prompt)
         self.assertNotIn("error", prompt)
 
+    def test_tokens_format_matches_training(self):
+        self.assertEqual(build_prompt([], "Bwakeye.", 6, "tokens"), "<|user|> Bwakeye. <|assistant|>")
+        history = [message(Role.USER, "Bwakeye."), message(Role.ASSISTANT, "Bwakeye neza.")]
+        self.assertEqual(
+            build_prompt(history, "N'amaki?", 6, "tokens"),
+            "<|user|> Bwakeye. <|assistant|> Bwakeye neza.<|endoftext|><|user|> N'amaki? <|assistant|>",
+        )
+
+    def test_tokens_history_starts_with_a_user_message(self):
+        history = [message(Role.USER, "Q1"), message(Role.ASSISTANT, "R1"), message(Role.USER, "Q2"),
+                   message(Role.ASSISTANT, "R2")]
+        prompt = build_prompt(history, "Q3", 3, "tokens")
+        self.assertTrue(prompt.startswith("<|user|> Q2"))
+
 
 class RepositoryTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.repo = ConversationRepository(Path(self.tmp.name) / "test.db")
+        self.repo = ConversationRepository(Path(self.tmp.name))
 
     def tearDown(self):
         self.tmp.cleanup()
 
     def test_messages_are_saved_in_order(self):
         conv = self.repo.create_conversation("device-1", "Titre")
-        self.repo.add_message(conv.conversation_id, Role.USER, "Q")
-        self.repo.add_message(conv.conversation_id, Role.ASSISTANT, "R", tokens=3, elapsed_time=0.5)
+        self.repo.add_message("device-1", conv.conversation_id, Role.USER, "Q")
+        self.repo.add_message("device-1", conv.conversation_id, Role.ASSISTANT, "R", tokens=3, elapsed_time=0.5)
         saved = self.repo.get_conversation(conv.conversation_id, "device-1")
         self.assertEqual([m.content for m in saved.messages], ["Q", "R"])
         self.assertEqual(saved.messages[1].tokens, 3)
 
     def test_data_survives_a_new_repository(self):
         conv = self.repo.create_conversation("device-1", "Titre")
-        reopened = ConversationRepository(Path(self.tmp.name) / "test.db")
+        reopened = ConversationRepository(Path(self.tmp.name))
         self.assertIsNotNone(reopened.get_conversation(conv.conversation_id, "device-1"))
+
+    def test_each_device_has_its_own_file(self):
+        conv = self.repo.create_conversation("device-1", "Titre")
+        self.repo.create_conversation("device-2", "Autre")
+        self.assertTrue((Path(self.tmp.name) / "device-1.db").is_file())
+        self.assertTrue((Path(self.tmp.name) / "device-2.db").is_file())
+        self.assertIsNone(self.repo.get_conversation(conv.conversation_id, "device-2"))
+
+    def test_deleted_file_is_recreated(self):
+        self.repo.create_conversation("device-1", "Titre")
+        (Path(self.tmp.name) / "device-1.db").unlink()
+        self.assertEqual(self.repo.list_conversations("device-1"), [])
 
     def test_deleting_a_conversation_deletes_its_messages(self):
         conv = self.repo.create_conversation("device-1", "Titre")
-        self.repo.add_message(conv.conversation_id, Role.USER, "Q")
+        self.repo.add_message("device-1", conv.conversation_id, Role.USER, "Q")
         self.assertTrue(self.repo.delete_conversation(conv.conversation_id, "device-1"))
         self.assertIsNone(self.repo.get_conversation(conv.conversation_id, "device-1"))
 

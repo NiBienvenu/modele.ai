@@ -14,6 +14,7 @@ model is ready simply wait in the queue.
 """
 
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -30,13 +31,20 @@ from inference.service import InferenceService
 
 logger = logging.getLogger(__name__)
 
-DATABASE_FILE = "conversations.db"
+# One SQLite file per device: backend/conversations/<device_id>.db
+CONVERSATIONS_DIR = Path(__file__).resolve().parent / "conversations"
 
 
-def create_app(settings: Settings, service: InferenceService | None = None) -> FastAPI:
-    """Build the app. Tests pass their own `service` (with a fake engine)."""
+def create_app(
+    settings: Settings, service: InferenceService | None = None, conversations_dir: Path = CONVERSATIONS_DIR
+) -> FastAPI:
+    """Build the app. Tests pass their own `service` (with a fake engine) and folder."""
     service = service or build_inference_service(settings)
-    repository = ConversationRepository(settings.paths.storage_dir / DATABASE_FILE)
+    repository = ConversationRepository(conversations_dir)
+    old_database = settings.paths.storage_dir / "conversations.db"
+    if old_database.is_file():
+        count = repository.import_old_database(old_database)
+        logger.info("Old conversations moved into %d device files", count)
     chat = ChatService(repository, service, settings.chat)
 
     @asynccontextmanager

@@ -51,6 +51,8 @@ services:
       - ./documents:/app/documents
       - ./tokenizer:/app/tokenizer
       - ./storage:/app/storage
+      # One SQLite file per device (backend/conversations/<device_id>.db)
+      - ./backend/conversations:/app/backend/conversations
       - ./logs:/app/logs
       - hf-cache:/app/.cache/huggingface
     restart: unless-stopped
